@@ -1,3 +1,4 @@
+import CryptoKit
 import Foundation
 import Testing
 @testable import PalmierPro
@@ -52,12 +53,24 @@ struct TranscriptCacheTests {
         try Data("audio".utf8).write(to: url)
         defer { try? FileManager.default.removeItem(at: url) }
 
-        await TranscriptCache.shared.storeCloudTranscript(
-            full,
-            for: url,
-            range: nil,
-            language: "en"
-        )
+        let attributes = try FileManager.default.attributesOfItem(atPath: url.path)
+        let size = try #require(attributes[.size] as? NSNumber).int64Value
+        let mtime = try #require(attributes[.modificationDate] as? Date)
+        let base = "\(url.path)|\(mtime.timeIntervalSince1970)|\(size)"
+        func cacheURL(prefix: String) -> URL {
+            let key = SHA256.hash(data: Data("\(prefix)|\(base)".utf8))
+                .map { String(format: "%02x", $0) }.joined().prefix(32)
+            return TranscriptCache.directory.appendingPathComponent("\(key).json")
+        }
+        let legacyURL = cacheURL(prefix: "cloud|en|full")
+        let lookupURL = cacheURL(prefix: "cloud|any|full")
+        defer {
+            try? FileManager.default.removeItem(at: legacyURL)
+            try? FileManager.default.removeItem(at: lookupURL)
+        }
+        try FileManager.default.createDirectory(at: TranscriptCache.directory, withIntermediateDirectories: true)
+        try JSONEncoder().encode(full).write(to: legacyURL)
+
         let cached = await TranscriptCache.shared.cachedTranscript(for: url)
         #expect(cached?.text == full.text)
         #expect(cached?.language == full.language)

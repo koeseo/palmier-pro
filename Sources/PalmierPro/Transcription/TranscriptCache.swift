@@ -14,6 +14,7 @@ actor TranscriptCache {
         .appendingPathComponent("\(Log.subsystem)/Transcripts", isDirectory: true)
 
     private var memory: [String: TranscriptionResult] = [:]
+    private var legacyLookupMisses: Set<String> = []
     private static let memoryMax = 4
 
     func transcript(for url: URL, isVideo: Bool, range: ClosedRange<Double>?, preferredLocale: Locale? = nil) async throws -> TranscriptionResult {
@@ -53,13 +54,30 @@ actor TranscriptCache {
     }
 
     func cachedTranscript(for url: URL) -> TranscriptionResult? {
-        if let key = Self.key(for: url), let transcript = cached(key) { return transcript }
+        guard let sourceKey = Self.key(for: url) else { return nil }
+        if let transcript = cached(sourceKey) { return transcript }
         if let key = Self.key(for: url, variant: .cloudLookup), let transcript = cached(key) {
             return transcript
         }
         // Pre-lookup cloud|auto|full entries written before cloudLookup dual-write.
-        guard let key = Self.key(for: url, variant: .cloud(range: nil, language: nil)) else { return nil }
-        return cached(key)
+        if let key = Self.key(for: url, variant: .cloud(range: nil, language: nil)),
+           let transcript = cached(key) {
+            return transcript
+        }
+        guard legacyLookupMisses.insert(sourceKey).inserted else { return nil }
+        let cachedFiles = Set(
+            (try? FileManager.default.contentsOfDirectory(atPath: Self.directory.path)) ?? []
+        )
+        for language in Locale.LanguageCode.isoLanguageCodes.map(\.identifier) {
+            guard let key = Self.key(for: url, variant: .cloud(range: nil, language: language)),
+                  cachedFiles.contains("\(key).json"),
+                  let transcript = cached(key) else { continue }
+            if let lookupKey = Self.key(for: url, variant: .cloudLookup) {
+                store(transcript, key: lookupKey)
+            }
+            return transcript
+        }
+        return nil
     }
 
     static func filter(_ r: TranscriptionResult, to range: ClosedRange<Double>) -> TranscriptionResult {
@@ -110,7 +128,10 @@ actor TranscriptCache {
     }
 
     /// Drop in-memory entries so a disk clear isn't shadowed by the memory cache.
-    func clearMemory() { memory.removeAll() }
+    func clearMemory() {
+        memory.removeAll()
+        legacyLookupMisses.removeAll()
+    }
 
     private func cached(_ key: String) -> TranscriptionResult? {
         if let r = memory[key] { return r }
