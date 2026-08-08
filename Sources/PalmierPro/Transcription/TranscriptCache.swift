@@ -54,30 +54,29 @@ actor TranscriptCache {
     }
 
     func cachedTranscript(for url: URL) -> TranscriptionResult? {
-        guard let sourceKey = Self.key(for: url) else { return nil }
+        guard let identity = Self.sourceIdentity(for: url) else { return nil }
+        let sourceKey = Self.key(for: identity)
         if let transcript = cached(sourceKey) { return transcript }
-        if let key = Self.key(for: url, variant: .cloudLookup), let transcript = cached(key) {
+        if let transcript = cached(Self.key(for: identity, variant: .cloudLookup)) {
             return transcript
         }
         // Pre-lookup cloud|auto|full entries written before cloudLookup dual-write.
-        if let key = Self.key(for: url, variant: .cloud(range: nil, language: nil)),
-           let transcript = cached(key) {
+        if let transcript = cached(Self.key(for: identity, variant: .cloud(range: nil, language: nil))) {
             return transcript
         }
-        guard legacyLookupMisses.insert(sourceKey).inserted else { return nil }
-        let cachedFiles = Set(
-            (try? FileManager.default.contentsOfDirectory(atPath: Self.directory.path)) ?? []
-        )
-        for language in Locale.LanguageCode.isoLanguageCodes.map(\.identifier) {
-            guard let key = Self.key(for: url, variant: .cloud(range: nil, language: language)),
-                  cachedFiles.contains("\(key).json"),
-                  let transcript = cached(key) else { continue }
-            if let lookupKey = Self.key(for: url, variant: .cloudLookup) {
-                store(transcript, key: lookupKey)
+        if legacyLookupMisses.insert(sourceKey).inserted {
+            let cachedFiles = Set(
+                (try? FileManager.default.contentsOfDirectory(atPath: Self.directory.path)) ?? []
+            )
+            for language in Locale.LanguageCode.isoLanguageCodes.map(\.identifier) {
+                let key = Self.key(for: identity, variant: .cloud(range: nil, language: language))
+                guard cachedFiles.contains("\(key).json"),
+                      let transcript = cached(key) else { continue }
+                store(transcript, key: Self.key(for: identity, variant: .cloudLookup))
+                return transcript
             }
-            return transcript
         }
-        return nil
+        return cached(Self.key(for: identity, variant: .cloudRangeLookup))
     }
 
     static func filter(_ r: TranscriptionResult, to range: ClosedRange<Double>) -> TranscriptionResult {
@@ -120,8 +119,9 @@ actor TranscriptCache {
     ) {
         guard let key = Self.key(for: url, variant: .cloud(range: range, language: language)) else { return }
         store(result, key: key)
-        // Language-agnostic full key so preview/search can find locale-keyed cloud caches.
-        if range == nil, let lookupKey = Self.key(for: url, variant: .cloudLookup) {
+        // Keep full and ranged fallbacks separate so a partial result cannot replace a full one.
+        let lookupVariant: CacheVariant = range == nil ? .cloudLookup : .cloudRangeLookup
+        if let lookupKey = Self.key(for: url, variant: lookupVariant) {
             store(result, key: lookupKey)
         }
         Self.notifyDidStore(url)
@@ -163,12 +163,20 @@ actor TranscriptCache {
     }
 
     private static func key(for url: URL, variant: CacheVariant = .local) -> String? {
+        guard let identity = sourceIdentity(for: url) else { return nil }
+        return key(for: identity, variant: variant)
+    }
+
+    private static func sourceIdentity(for url: URL) -> String? {
         guard let attrs = try? FileManager.default.attributesOfItem(atPath: url.path),
               let size = (attrs[.size] as? NSNumber)?.int64Value,
               let mtime = attrs[.modificationDate] as? Date else { return nil }
-        let base = "\(url.path)|\(mtime.timeIntervalSince1970)|\(size)"
-        let identity = variant.prefix.map { "\($0)|\(base)" } ?? base
-        return SHA256.hash(data: Data(identity.utf8)).map { String(format: "%02x", $0) }.joined().prefix(32).description
+        return "\(url.path)|\(mtime.timeIntervalSince1970)|\(size)"
+    }
+
+    private static func key(for identity: String, variant: CacheVariant = .local) -> String {
+        let seed = variant.prefix.map { "\($0)|\(identity)" } ?? identity
+        return SHA256.hash(data: Data(seed.utf8)).map { String(format: "%02x", $0) }.joined().prefix(32).description
     }
 
     private enum CacheVariant {
@@ -176,6 +184,7 @@ actor TranscriptCache {
         case cloud(range: ClosedRange<Double>?, language: String?)
         /// Full cloud transcript lookup that ignores the language used when storing.
         case cloudLookup
+        case cloudRangeLookup
 
         var prefix: String? {
             switch self {
@@ -183,6 +192,8 @@ actor TranscriptCache {
                 return nil
             case .cloudLookup:
                 return "cloud|any|full"
+            case .cloudRangeLookup:
+                return "cloud|any|range"
             case .cloud(let range, let language):
                 let lang = language ?? "auto"
                 guard let range else { return "cloud|\(lang)|full" }

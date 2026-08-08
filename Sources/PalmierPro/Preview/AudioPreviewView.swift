@@ -4,8 +4,10 @@ struct AudioPreviewView: View {
     @Environment(EditorViewModel.self) private var editor
     let asset: MediaAsset
 
-    @State private var samples: [Float] = []
+    @State private var waveformLevels: [CGFloat] = []
     @State private var transcriptLines: [TranscriptionSegment] = []
+    @State private var loadGeneration = 0
+    private nonisolated static let waveformBarResolution = 1_024
 
     var body: some View {
         let waveformProgress = progress
@@ -35,7 +37,14 @@ struct AudioPreviewView: View {
             for await notification in NotificationCenter.default.notifications(named: .transcriptCacheDidStore) {
                 guard !Task.isCancelled else { return }
                 guard let stored = notification.object as? URL, stored.path == url.path else { continue }
-                await refreshTranscript(for: url, identity: identity)
+                await refreshTranscript(for: url, identity: identity, generation: loadGeneration)
+            }
+        }
+        .task(id: assetIdentity) {
+            for await notification in NotificationCenter.default.notifications(named: .mediaVisualCacheDidInvalidate) {
+                guard !Task.isCancelled else { return }
+                if let mediaRef = notification.object as? String, mediaRef != asset.id { continue }
+                await loadContent()
             }
         }
     }
@@ -94,7 +103,7 @@ struct AudioPreviewView: View {
 
     private func waveform(progress: CGFloat) -> some View {
         Group {
-            if samples.isEmpty {
+            if waveformLevels.isEmpty {
                 Image(systemName: "waveform")
                     .font(.system(size: AppTheme.FontSize.xl))
                     .foregroundStyle(AppTheme.MediaOverlay.mutedColor)
@@ -108,15 +117,15 @@ struct AudioPreviewView: View {
     }
 
     private func drawWaveform(in context: inout GraphicsContext, size: CGSize, progress: CGFloat) {
-        guard size.width > 2, size.height > 2, !samples.isEmpty else { return }
+        guard size.width > 2, size.height > 2, !waveformLevels.isEmpty else { return }
         let barWidth = AppTheme.Spacing.xxs
         let barGap = AppTheme.BorderWidth.thin
         let step = barWidth + barGap
         let barCount = max(1, Int((size.width + barGap) / step))
         let progressX = size.width * progress
-        let levels = Self.barLevels(samples: samples, barCount: barCount)
 
-        for (i, level) in levels.enumerated() {
+        for i in 0..<barCount {
+            let level = waveformLevels[min(waveformLevels.count - 1, i * waveformLevels.count / barCount)]
             let height = max(AppTheme.BorderWidth.medium, level * size.height * 0.9)
             let x = CGFloat(i) * step
             let rect = CGRect(
@@ -150,20 +159,32 @@ struct AudioPreviewView: View {
     }
 
     private func loadContent() async {
+        loadGeneration &+= 1
+        let generation = loadGeneration
         let identity = assetIdentity
         let url = asset.url
-        samples = []
+        waveformLevels = []
         transcriptLines = []
         async let waveform = editor.mediaVisualCache.waveform(for: asset)
-        await refreshTranscript(for: url, identity: identity)
+        await refreshTranscript(for: url, identity: identity, generation: generation)
         let loadedSamples = await waveform
-        guard !Task.isCancelled, assetIdentity == identity else { return }
-        samples = loadedSamples ?? []
+        guard !Task.isCancelled, assetIdentity == identity, loadGeneration == generation else { return }
+        let snapshot = loadedSamples ?? []
+        let levels = await Task.detached(priority: .utility) {
+            Self.barLevels(
+                samples: snapshot,
+                barCount: min(Self.waveformBarResolution, snapshot.count)
+            )
+        }.value
+        guard !Task.isCancelled, assetIdentity == identity, loadGeneration == generation else { return }
+        waveformLevels = levels
     }
 
-    private func refreshTranscript(for url: URL, identity: String) async {
-        let cachedTranscript = await TranscriptCache.shared.cachedTranscript(for: url)
-        guard !Task.isCancelled, assetIdentity == identity else { return }
+    private func refreshTranscript(for url: URL, identity: String, generation: Int) async {
+        guard let cachedTranscript = await TranscriptCache.shared.cachedTranscript(for: url),
+              !Task.isCancelled,
+              assetIdentity == identity,
+              loadGeneration == generation else { return }
         transcriptLines = Self.lines(from: cachedTranscript)
     }
 }

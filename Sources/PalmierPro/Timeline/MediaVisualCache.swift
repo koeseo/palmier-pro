@@ -4,6 +4,10 @@ import CryptoKit
 import ImageIO
 import UniformTypeIdentifiers
 
+extension Notification.Name {
+    static let mediaVisualCacheDidInvalidate = Notification.Name("io.palmier.pro.mediaVisualCacheDidInvalidate")
+}
+
 @MainActor
 final class MediaVisualCache {
 
@@ -124,6 +128,7 @@ final class MediaVisualCache {
         imageThumbnails.removeAll()
         onDeadAirCacheInvalidated?()
         timelineView?.needsDisplay = true
+        NotificationCenter.default.post(name: .mediaVisualCacheDidInvalidate, object: nil)
     }
 
     /// Clears every cached visual for `mediaRef` so relinked media regenerates.
@@ -136,6 +141,7 @@ final class MediaVisualCache {
         videoThumbnails.removeValue(forKey: mediaRef)
         imageThumbnails.removeValue(forKey: mediaRef)
         onDeadAirCacheInvalidated?()
+        NotificationCenter.default.post(name: .mediaVisualCacheDidInvalidate, object: mediaRef)
     }
 
     func generateImageThumbnail(for asset: MediaAsset) {

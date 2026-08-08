@@ -76,6 +76,44 @@ struct TranscriptCacheTests {
         #expect(cached?.language == full.language)
     }
 
+    @Test func cachedTranscriptFindsRangedCloudResult() async throws {
+        let url = FileManager.default.temporaryDirectory
+            .appendingPathComponent("cloud-range-\(UUID().uuidString).wav")
+        try Data("audio".utf8).write(to: url)
+        defer { try? FileManager.default.removeItem(at: url) }
+
+        await TranscriptCache.shared.storeCloudTranscript(
+            full,
+            for: url,
+            range: 4...12,
+            language: "en"
+        )
+        let cached = await TranscriptCache.shared.cachedTranscript(for: url)
+        #expect(cached?.text == full.text)
+    }
+
+    @Test func rangedCloudResultDoesNotReplaceFullLookup() async throws {
+        let url = FileManager.default.temporaryDirectory
+            .appendingPathComponent("cloud-full-range-\(UUID().uuidString).wav")
+        try Data("audio".utf8).write(to: url)
+        defer { try? FileManager.default.removeItem(at: url) }
+        let partial = TranscriptionResult(
+            text: "How are you.",
+            language: "en-US",
+            words: Array(full.words[2...4]),
+            segments: [full.segments[1]]
+        )
+
+        await TranscriptCache.shared.storeCloudTranscript(
+            full, for: url, range: nil, language: "en"
+        )
+        await TranscriptCache.shared.storeCloudTranscript(
+            partial, for: url, range: 4...6, language: "en"
+        )
+        let cached = await TranscriptCache.shared.cachedTranscript(for: url)
+        #expect(cached?.text == full.text)
+    }
+
     @Test func storeCloudTranscriptPostsDidStoreNotification() async throws {
         let url = FileManager.default.temporaryDirectory
             .appendingPathComponent("cloud-notify-\(UUID().uuidString).wav")

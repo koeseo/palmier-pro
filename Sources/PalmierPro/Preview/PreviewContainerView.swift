@@ -34,6 +34,7 @@ struct PreviewContainerView: View {
                               activeFailedError == nil,
                               !activeMediaMissing {
                         AudioPreviewView(asset: asset)
+                            .id(asset.id)
                     }
                     if let error = activeFailedError {
                         failedPreview(error: error)
