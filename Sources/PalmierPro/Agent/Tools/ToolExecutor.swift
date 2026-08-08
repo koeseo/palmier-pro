@@ -299,7 +299,9 @@ final class ToolExecutor {
         case .manageTracks:     return try manageTracks(editor, args)
         case .moveClips:        return try moveClips(editor, args)
         case .applyLayout:      return try applyLayout(editor, args)
+        case .swapClipMedia:    return try swapClipMedia(editor, args)
         case .setClipProperties: return try setClipProperties(editor, args)
+        case .copyClipSettings: return try copyClipSettings(editor, args)
         case .setKeyframes:     return try setKeyframes(editor, args)
         case .splitClips:       return try splitClips(editor, args)
         case .rippleDeleteRanges: return try rippleDeleteRanges(editor, args)
@@ -339,6 +341,11 @@ final class ToolExecutor {
         guard let body = SkillStore.shared.body(for: id) else {
             return .error("Unknown skill: \(id)")
         }
+        Analytics.captureSkillRead(
+            skillID: id,
+            skillSHA: SkillStore.shared.contentSHA(for: id),
+            skillOrigin: SkillStore.shared.origin(for: id).rawValue
+        )
         return .ok(body)
     }
 

@@ -125,7 +125,6 @@ enum AppTheme {
         static let panelWidth: CGFloat = 32
         static let barWidth: CGFloat = 8
         static let refreshInterval: Double = 1.0 / 30.0
-        static let accessibilityRefreshInterval: Duration = .milliseconds(250)
         static let rulerStepDb: Float = 6
         static let rulerMajorStepDb: Float = 12
         static let yellowThresholdDb: Float = -20
@@ -386,7 +385,6 @@ enum AppTheme {
     }
 
     enum ComponentSize {
-        static let captionPreviewMaxHeight: CGFloat = 150
         static let captionPreviewMaxTextWidthRatio: CGFloat = 0.9
         static let toolImagePreviewMaxHeight: CGFloat = 50
         static let projectCardWidth: CGFloat = 150
@@ -417,7 +415,7 @@ enum AppTheme {
         static let skillsSearchWidth: CGFloat = 260
         static let skillRowIconFrame: CGFloat = 42
         static let skillStatusWidth: CGFloat = 124
-        static let skillActionWidth: CGFloat = 72
+        static let skillActionWidth: CGFloat = 112
         static let skillDetailWidth: CGFloat = 720
         static let skillDetailMinHeight: CGFloat = 600
         static let skillToastWidth: CGFloat = 380
@@ -453,13 +451,10 @@ enum AppTheme {
 
     enum Caption {
         static let defaultFontSize: Double = 48
-        static let minPosition: Double = 0
-        static let maxPosition: Double = 1
         static let centerSnapValue: CGFloat = 0.5
         static let centerSnapThreshold: Double = 0.02
         static let defaultCenterY: CGFloat = 0.9
         static let defaultCenter = CGPoint(x: centerSnapValue, y: defaultCenterY)
-        static let minDisplayDuration: Double = 0.7
     }
 
     enum GenerationPanel {

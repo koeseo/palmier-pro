@@ -11,6 +11,7 @@ extension EditorViewModel {
         var censorProfanity: Bool = false
         var locale: Locale? = nil
         var maxWords: Int? = nil
+        var maxCharacters: Int? = nil
         var gapSettings: CaptionGapSettings = .default
         var provider: TranscriptionProvider = .local
         /// Animation applied to every generated caption clip (timed from the transcript).
@@ -211,12 +212,14 @@ extension EditorViewModel {
                 }
             },
             fps: timeline.fps,
+            timelineEndFrame: preparationTimeline.totalFrames,
             canvasWidth: timeline.width,
             canvasHeight: timeline.height,
             style: request.style,
             center: request.center,
             textCase: request.textCase,
             maxWords: request.maxWords,
+            maxCharacters: request.maxCharacters,
             gapSettings: request.gapSettings,
             animation: animation
         )
@@ -330,6 +333,7 @@ extension EditorViewModel {
             for await outcome in group { collected.append(outcome) }
             return collected
         }
+        try Task.checkCancellation()
 
         var results: [String: TranscriptionResult] = [:]
         var firstError: Error?

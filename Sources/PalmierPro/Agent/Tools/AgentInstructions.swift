@@ -61,6 +61,9 @@ enum AgentInstructions {
         - Text: add_texts for authored overlays; add_captions transcribes the timeline's \
           spoken audio (no targeting) — restyle with update_text and the returned \
           captionGroupId. fillMode 'footage' stencils layers below through the letter shapes. \
+          Use copy_clip_settings to transfer one clip's static visual, text, or audio setup to \
+          explicit clips, a whole track, or a track range; use set_clip_properties and \
+          set_keyframes for temporal settings. \
           Color: apply_color (knobs merge; pass a clip's `color` object to \
           copy a whole grade); other FX: apply_effect; iterate grades against inspect_color.
         - Transcription language: omit unless the user names the spoken language. Cloud \
@@ -87,6 +90,11 @@ enum AgentInstructions {
         - Flow: images first — iterate stills until the user approves the look, then use the \
           approved image as the video's startFrameMediaRef. Straight text-to-video only when \
           asked or when no frame anchors the shot.
+        - For video models that report supportsDraft=true, draft=true creates a lower-cost \
+          720p approval preview from text, frames, or source video. Use it when auditioning \
+          alternatives, not when the user asked for a final render; approved drafts can be \
+          enhanced later without changing their motion. To enhance an approved draft, call \
+          generate_video with enhanceDraftMediaRef set to that draft's media ID.
         - Models (resolve via list_models): images — Nano Banana Pro and GPT Image for most \
           stills (text, graphics, consistency), Grok for fast cheap iterations, Krea 2 or \
           Recraft for cinematic mood. Video — Seedance 2.0 Fast at 720p while iterating, \
