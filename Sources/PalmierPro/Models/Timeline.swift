@@ -80,9 +80,28 @@ extension Timeline {
     }
 }
 
+enum TrackName {
+    static let maximumLength = 80
+
+    static func normalized(_ rawValue: String?) throws -> String? {
+        guard let rawValue else { return nil }
+        let value = rawValue.trimmingCharacters(in: .whitespaces)
+        guard rawValue.rangeOfCharacter(from: .controlCharacters.union(.newlines)) == nil,
+              value.count <= maximumLength else {
+            throw TrackNameValidationError.invalid
+        }
+        return value.isEmpty ? nil : value
+    }
+}
+
+enum TrackNameValidationError: Error, Equatable {
+    case invalid
+}
+
 struct Track: Codable, Sendable, Equatable, Identifiable {
     var id: String = UUID().uuidString
     var type: ClipType
+    var name: String?
     var muted: Bool = false
     var hidden: Bool = false
     var syncLocked: Bool = true
@@ -111,16 +130,18 @@ struct Track: Codable, Sendable, Equatable, Identifiable {
     }
 
     private enum CodingKeys: String, CodingKey {
-        case id, type, muted, hidden, syncLocked, clips, displayHeight
+        case id, type, name, muted, hidden, syncLocked, clips, displayHeight
     }
 }
 
 extension Track {
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
+        let decodedName = try? c.decode(String.self, forKey: .name)
         self.init(
             id: (try? c.decode(String.self, forKey: .id)) ?? UUID().uuidString,
             type: try c.decode(ClipType.self, forKey: .type),
+            name: try? TrackName.normalized(decodedName),
             muted: (try? c.decode(Bool.self, forKey: .muted)) ?? false,
             hidden: (try? c.decode(Bool.self, forKey: .hidden)) ?? false,
             syncLocked: (try? c.decode(Bool.self, forKey: .syncLocked)) ?? true,
@@ -484,13 +505,19 @@ extension Clip {
 }
 
 struct Transform: Codable, Sendable, Equatable, Hashable {
+    static let tiltRotationRange = -89.0...89.0
+
     var centerX: Double = 0.5
     var centerY: Double = 0.5
     var width: Double = 1
     var height: Double = 1
     var rotation: Double = 0 // degrees, positive = clockwise
+    var rotationX: Double = 0
+    var rotationY: Double = 0
     var flipHorizontal: Bool = false
     var flipVertical: Bool = false
+
+    var hasTiltRotation: Bool { rotationX != 0 || rotationY != 0 }
 
     var topLeft: (x: Double, y: Double) {
         (centerX - width / 2, centerY - height / 2)
@@ -506,6 +533,8 @@ struct Transform: Codable, Sendable, Equatable, Hashable {
         width: Double = 1,
         height: Double = 1,
         rotation: Double = 0,
+        rotationX: Double = 0,
+        rotationY: Double = 0,
         flipHorizontal: Bool = false,
         flipVertical: Bool = false
     ) {
@@ -514,6 +543,8 @@ struct Transform: Codable, Sendable, Equatable, Hashable {
         self.width = width
         self.height = height
         self.rotation = rotation
+        self.rotationX = rotationX
+        self.rotationY = rotationY
         self.flipHorizontal = flipHorizontal
         self.flipVertical = flipVertical
     }
@@ -533,7 +564,8 @@ struct Transform: Codable, Sendable, Equatable, Hashable {
     }
 
     private enum CodingKeys: String, CodingKey {
-        case centerX, centerY, width, height, rotation, flipHorizontal, flipVertical
+        case centerX, centerY, width, height, rotation, rotationX, rotationY
+        case flipHorizontal, flipVertical
         // Legacy keys
         case x, y
     }
@@ -559,6 +591,8 @@ struct Transform: Codable, Sendable, Equatable, Hashable {
         self.width = w
         self.height = h
         self.rotation = try c.decodeIfPresent(Double.self, forKey: .rotation) ?? 0
+        self.rotationX = try c.decodeIfPresent(Double.self, forKey: .rotationX) ?? 0
+        self.rotationY = try c.decodeIfPresent(Double.self, forKey: .rotationY) ?? 0
         self.flipHorizontal = try c.decodeIfPresent(Bool.self, forKey: .flipHorizontal) ?? false
         self.flipVertical = try c.decodeIfPresent(Bool.self, forKey: .flipVertical) ?? false
     }
@@ -570,6 +604,8 @@ struct Transform: Codable, Sendable, Equatable, Hashable {
         try c.encode(width, forKey: .width)
         try c.encode(height, forKey: .height)
         try c.encode(rotation, forKey: .rotation)
+        try c.encode(rotationX, forKey: .rotationX)
+        try c.encode(rotationY, forKey: .rotationY)
         try c.encode(flipHorizontal, forKey: .flipHorizontal)
         try c.encode(flipVertical, forKey: .flipVertical)
     }
