@@ -34,7 +34,8 @@ enum AgentInstructions {
           summaries — restyle whole groups from that alone; captionDetail=true (windowed) \
           only to touch individual caption clips.
         - After a batch of edits, spot-check the result: get_timeline for structure, \
-          inspect_timeline when placement, layout, captions, or stacking matter.
+          inspect_timeline for stills at a frame, show_timeline to play the cut (pass \
+          startFrame/endFrame on long timelines; several timelineIds to compare variants).
         - Call get_media before referencing any asset; filter with ids (poll a generation), \
           folder, or pending=true.
         - Call list_models before any generate_* or upscale call. If get_timeline says \
