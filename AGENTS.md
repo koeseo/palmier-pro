@@ -301,3 +301,48 @@ Palmier Pro speaks like a quietly capable native Mac app for filmmakers: direct,
 - [Loading media data asynchronously](https://developer.apple.com/documentation/avfoundation/loading-media-data-asynchronously)
 - [Swift Testing](https://developer.apple.com/documentation/testing)
 - [Swift API Design Guidelines](https://www.swift.org/documentation/api-design-guidelines/)
+
+---
+
+## Nachtrag 02.09.2026 — Dies ist der KoeHub-Fork, nicht das Original
+
+Alles oberhalb dieser Linie stammt vom Upstream `palmier-io/palmier-pro` und
+beschreibt den Swift-Code. Was hier folgt, gilt nur für unseren Fork
+`koeseo/palmier-pro` unter `~/appz/palmier-pro`.
+
+**Warum es diesen Fork gibt.** Palmier Pro ist G-KHAANs Schnittplatz. Der Chat in
+der Seitenleiste soll statt der eingebauten Cloud-AI direkt mit Hermes sprechen —
+Profil `elfi`. Der Umbau braucht einen eigenen Build aus dem Quellbaum, also einen
+Fork. Der Ursprungsplan liegt in `~/appz/KoeShot/tasks/todo.md`, der laufende Stand
+in `tasks/todo.md` hier im Repo.
+
+**Der Quellcode steht still.** Der Upstream hat am 28.08.2026 die öffentliche
+Quellcode-Entwicklung eingestellt. Was hier liegt, ist der letzte GPLv3-Stand
+(v0.7.6, identisch mit dem Tag `last-gpl-source`). Neuere Releases sind proprietär
+und ohne Quellcode. Ein Upstream-Sync bringt deshalb fast nur noch `appcast.xml` —
+Update-Metadaten für Binär-Releases, die uns nichts nützen.
+
+**Was gepatcht ist.** Die vollständige Tabelle steht in `KOEHUB-FORK.md`. Der eine
+Patch, dessen Verlust den Fork stillschweigend zerstört, ist der abgeschaltete
+Sparkle-Auto-Update: Ohne ihn zöge die App beim nächsten Start das proprietäre
+Upstream-Release über unseren eigenen Build. Nach jedem Merge prüfen:
+`bash tools/pruefe-sparkle-aus.sh`.
+
+**Wie gesynct wird.** Über den Skill `palmier-upstream-sync`
+(`.agents/skills/palmier-upstream-sync/SKILL.md`, sichtbar auch unter
+`.claude/skills/`). Nie nach `upstream` pushen — dessen Push-URL steht bewusst auf
+`DISABLED_no_push_to_upstream`.
+
+**Was tabu ist.** Die installierte Release-App unter `/Applications/Palmier Pro.app`
+und G-KHAANs Projekte in `~/Documents/Palmier Pro` gehören nicht zu diesem Fork und
+werden nicht angefasst. Unser Build lebt ausschließlich unter `.build/PalmierPro.app`.
+Palmiers eingebaute Generierungs-Werkzeuge (Seedance, Kling, Nano Banana) bleiben
+nach der Kosten-Doktrin ungenutzt; erzeugt wird über die dafür vorgesehenen Lanes.
+
+## Nachtrag 2026-09-02 — KoeHub-Standard für Agenten-Anweisungen
+
+<!-- koehub-agents-standard v1 -->
+Für diese Datei gilt der Standard unter `~/.agents/AGENTS-STANDARD.md` (Vault:
+`Regeln/Agenten-Anweisungen-Standard.md`): Prinzipien statt Regeln · immer das Warum ·
+klein halten und auf Detaildateien verweisen · Widersprüche sind Fragen an G-KHAAN ·
+datierte Nachträge statt Umschreiben · keine Geheimnisse, keine Zustandsberichte.
