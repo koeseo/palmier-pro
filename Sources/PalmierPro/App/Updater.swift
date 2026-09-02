@@ -14,6 +14,12 @@ final class Updater: NSObject {
 
     private override init() {
         super.init()
+        // KoeHub-Fork: Sparkle bleibt tot. Der Upstream-Appcast liefert seit v0.7.6
+        // proprietäre Releases — ein Auto-Update würde unseren eigenen Build
+        // stillschweigend durch die Store-App ersetzen. Zweiter Riegel neben der
+        // entfernten SUFeedURL in Info.plist. Siehe KOEHUB-FORK.md.
+        let koehubUpdatesDisabled = true
+        if koehubUpdatesDisabled { return }
         guard Bundle.main.bundleURL.pathExtension == "app",
               Bundle.main.object(forInfoDictionaryKey: "SUFeedURL") != nil
         else { return }
